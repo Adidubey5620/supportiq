@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 import logging
@@ -136,3 +136,27 @@ def delete_ticket(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete ticket."
         )
+
+
+
+@router.get(
+    "/tickets",
+    response_model=list[TicketResponse],
+    tags=["Tickets"],
+)
+def list_tickets(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> list[TicketResponse]:
+    print(f"DEBUG list_tickets: skip={skip}, limit={limit}")
+    tickets = (
+        db.query(Ticket)
+        .order_by(Ticket.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    return tickets
+

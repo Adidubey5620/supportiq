@@ -1,6 +1,7 @@
 from supportiq.db.session import engine
 from supportiq.models.base import Base
 from supportiq.models.ticket import Ticket  # noqa: F401
+from supportiq.models.knowledge_article import KnowledgeArticle  # noqa: F401
 
 
 def create_tables() -> None:

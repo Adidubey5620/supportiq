@@ -10,3 +10,6 @@ wheels/
 .venv
 .env
     
+Add-Content .gitignore "`n.env"
+Add-Content .gitignore "`n.env.*"
+Add-Content .gitignore "`n!.env.example"

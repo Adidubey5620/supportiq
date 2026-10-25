@@ -22,3 +22,16 @@ class TicketResponse(BaseModel):
 
 class TicketStatusUpdate(BaseModel):
     status: Literal["open", "in_progress", "resolved"]
+
+
+class TicketCountResponse(BaseModel):
+    total: int
+    open: int
+    in_progress: int
+    resolved: int
+
+
+class AIReplyResponse(BaseModel):
+    ticket_id: int
+    draft_reply: str
+    requires_human_review: bool = True

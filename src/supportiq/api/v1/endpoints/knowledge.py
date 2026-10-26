@@ -2,7 +2,6 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi import Query
 from sqlalchemy.orm import Session
 
 from supportiq.db.session import get_db
@@ -64,11 +63,6 @@ def list_knowledge_articles(
     )
 
 
-@router.get(
-    "/knowledge/search",
-    response_model=list[KnowledgeArticleResponse],
-    tags=["Knowledge Base"],
-)
 @router.get(
     "/knowledge/search",
     response_model=list[KnowledgeArticleResponse],

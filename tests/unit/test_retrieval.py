@@ -129,3 +129,54 @@ def test_retrieve_knowledge_ranks_better_title_matches_first(
     assert len(results) == 2
     assert results[0].title == "Password Reset Email Troubleshooting"
     assert results[1].title == "General Account Help"
+
+
+def test_retrieve_knowledge_handles_different_customer_wording(db):
+    article = KnowledgeArticle(
+        title="Password Reset Email Not Received",
+        content=(
+            "If the password reset email is missing, "
+            "ask the customer to check their spam folder."
+        ),
+        category="account",
+        is_active=True,
+    )
+
+    db.add(article)
+    db.commit()
+
+    results = retrieve_knowledge(
+        customer_message="I did not get the account recovery message",
+        db=db,
+    )
+
+    assert len(results) == 1
+    assert results[0].title == "Password Reset Email Not Received"
+
+
+def test_retrieve_knowledge_breaks_equal_score_ties_alphabetically(db):
+    article_z = KnowledgeArticle(
+        title="Zebra Account Guide",
+        content="Troubleshooting account access.",
+        category="account",
+        is_active=True,
+    )
+
+    article_a = KnowledgeArticle(
+        title="Apple Account Guide",
+        content="Troubleshooting account access.",
+        category="account",
+        is_active=True,
+    )
+
+    db.add_all([article_z, article_a])
+    db.commit()
+
+    results = retrieve_knowledge(
+        customer_message="account troubleshooting",
+        db=db,
+    )
+
+    assert len(results) == 2
+    assert results[0].title == "Apple Account Guide"
+    assert results[1].title == "Zebra Account Guide"

@@ -1,12 +1,12 @@
-
 import logging
-
-from sqlalchemy.orm import Session
 from typing import Literal
+
 from sqlalchemy import func
-from supportiq.models.ticket import Ticket
+from sqlalchemy.orm import Session
+
 from supportiq.models.ticket import Ticket
 from supportiq.schemas.ticket import TicketCreate
+
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,8 @@ def search_tickets(
     skip: int = 0,
     limit: int = 10,
 ) -> list[Ticket]:
+    if not q.strip():
+        return []
     search_term = f"%{q.strip()}%"
     return (
         db.query(Ticket)
@@ -107,3 +109,56 @@ def count_tickets(db: Session) -> dict[str, int]:
         "in_progress": in_progress_count,
         "resolved": resolved_count,
     }
+
+
+def get_ticket_by_id(
+    db: Session,
+    ticket_id: int,
+) -> Ticket | None:
+    """Return a ticket by ID, or None if it doesn't exist."""
+    return db.get(Ticket, ticket_id)
+
+
+def update_ticket_status(
+    db: Session,
+    ticket_id: int,
+    new_status: Literal["open", "in_progress", "resolved"],
+) -> Ticket | None:
+    """Update a ticket's status, returning None if it doesn't exist."""
+    ticket = db.get(Ticket, ticket_id)
+
+    if ticket is None:
+        return None
+
+    ticket.status = new_status
+
+    try:
+        db.commit()
+        db.refresh(ticket)
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to update ticket status")
+        raise
+
+    return ticket
+
+
+def delete_ticket_by_id(
+    db: Session,
+    ticket_id: int,
+) -> bool:
+    """Delete a ticket by ID; return False if it doesn't exist."""
+    ticket = db.get(Ticket, ticket_id)
+
+    if ticket is None:
+        return False
+
+    try:
+        db.delete(ticket)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to delete ticket")
+        raise
+
+    return True

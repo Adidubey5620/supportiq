@@ -16,6 +16,14 @@ STOP_WORDS = {
 }
 
 
+SYNONYMS = {
+    "get": {"receive", "received", "arrive", "arrived"},
+    "recovery": {"password", "reset"},
+    "message": {"email"},
+    "missing": {"missing", "not", "received"},
+}
+
+
 def retrieve_knowledge(
     customer_message: str,
     db: Session,
@@ -34,6 +42,13 @@ def retrieve_knowledge(
         if len(word) >= 4 and word not in STOP_WORDS
     }
 
+    expanded_keywords = set(keywords)
+
+    for word in keywords:
+        expanded_keywords.update(SYNONYMS.get(word, set()))
+
+    keywords = expanded_keywords
+
     if not keywords:
         return []
 
@@ -43,7 +58,10 @@ def retrieve_knowledge(
         .all()
     )
 
+    
     scored_articles: list[tuple[int, KnowledgeArticle]] = []
+
+    MIN_RELEVANCE_SCORE = 1
 
     for article in articles:
         title = article.title.lower()
@@ -58,13 +76,11 @@ def retrieve_knowledge(
             if re.search(rf"\b{re.escape(keyword)}\b", content):
                 score += 1
 
-        if score > 0:
+        if score >= MIN_RELEVANCE_SCORE:
             scored_articles.append((score, article))
 
-    scored_articles.sort(
-        key=lambda item: item[0],
-        reverse=True,
-    )
+
+    scored_articles.sort(key=lambda x: (-x[0], x[1].title))
 
     return [
         article

@@ -25,6 +25,10 @@ from supportiq.services.ticket_service import (
     create_ticket,
     list_tickets,
     search_tickets,
+    get_ticket_by_id,
+    update_ticket_status,
+    delete_ticket_by_id,
+
 )
 
 router = APIRouter()
@@ -112,14 +116,24 @@ def search_tickets_endpoint(
     response_model=TicketResponse,
     tags=["Tickets"],
 )
+
 def get_ticket(
     ticket_id: int,
     db: Session = Depends(get_db),
 ) -> TicketResponse:
-    ticket = db.get(Ticket, ticket_id)
+    ticket = get_ticket_by_id(
+        db=db,
+        ticket_id=ticket_id,
+    )
+
     if ticket is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found",
+        )
+
     return ticket
+
 
 
 @router.patch(
@@ -127,26 +141,36 @@ def get_ticket(
     response_model=TicketResponse,
     tags=["Tickets"]
 )
-def update_ticket_status(
+
+def update_ticket_status_endpoint(
     ticket_id: int,
     status_data: TicketStatusUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> TicketResponse:
-    ticket = db.get(Ticket, ticket_id)
-    if ticket is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
-    ticket.status = status_data.status
     try:
-        db.commit()
-        db.refresh(ticket)
+        ticket = update_ticket_status(
+            db=db,
+            ticket_id=ticket_id,
+            new_status=status_data.status,
+        )
     except Exception:
-        db.rollback()
-        logger.exception("Failed to update ticket status")
+        logger.exception(
+            "Ticket status update failed at API layer for ticket %s",
+            ticket_id,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update ticket status."
+            detail="Failed to update ticket status.",
         )
+
+    if ticket is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found",
+        )
+
     return ticket
+
 
 
 @router.delete(
@@ -154,23 +178,34 @@ def update_ticket_status(
     status_code=status.HTTP_204_NO_CONTENT,
     tags=["Tickets"]
 )
+
 def delete_ticket(
     ticket_id: int,
     db: Session = Depends(get_db),
 ) -> None:
-    ticket = db.get(Ticket, ticket_id)
-    if ticket is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found.")
     try:
-        db.delete(ticket)
-        db.commit()
+        deleted = delete_ticket_by_id(
+            db=db,
+            ticket_id=ticket_id,
+        )
+    
     except Exception:
-        db.rollback()
-        logger.exception("Failed to delete ticket")
+        logger.exception(
+            "Ticket deletion failed at API layer for ticket %s",
+            ticket_id,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete ticket."
+            detail="Failed to delete ticket.",
         )
+
+
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found.",
+        )
+
 
 
 @router.post(
@@ -196,6 +231,13 @@ async def generate_ticket_reply(
             db=db,
             limit=5,
         )
+
+        if not articles:
+            return AIReplyResponse(
+                ticket_id=ticket.id,
+                draft_reply="No relevant knowledge found. Please contact human support.",
+                requires_human_review=True,
+            )
 
         knowledge_context = "\n\n".join(
             f"Title: {article.title}\n"
